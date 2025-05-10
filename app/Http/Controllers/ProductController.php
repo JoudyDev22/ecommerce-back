@@ -42,8 +42,6 @@ class ProductController extends Controller
         return $products;
     }
 
-
-
     /**
      * Show the form for creating a new resource.
      */
