@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -25,14 +26,14 @@ class ProductController extends Controller
 
     public function getLastSaleProducts(Request $request)
     {
-        $products = Product::with('Images')->where('status', '=', 'published')->where('discount', '>', '0')->take(8)->get();
+        $products = Product::with('Images')->where('status', '=', 'published')->where('discount', '>', '0')->latest()->take(5)->get();
         return $products;
     }
 
 
     public function getLatest(Request $request)
     {
-        $products = Product::with('Images')->where('status', '=', 'published')->latest()->take(4)->get();
+        $products = Product::with('Images')->where('status', '=', 'published')->latest()->take(6)->get();
         return $products;
     }
 
@@ -41,6 +42,8 @@ class ProductController extends Controller
         $products = Product::with('Images')->where('status', '=', 'published')->where('rating', '=', '5')->latest()->take(10)->get();
         return $products;
     }
+
+
 
     /**
      * Show the form for creating a new resource.
@@ -61,7 +64,8 @@ class ProductController extends Controller
             'description' => 'required',
             'price' => 'required | numeric',
             'discount' => 'required | numeric',
-            'About' => 'required'
+            'About' => 'required',
+            'stock' => 'required | numeric'
         ]);
         $productCreated = $product->create([
             'category' => $request->category,
@@ -70,6 +74,8 @@ class ProductController extends Controller
             'price' => $request->price,
             'About' => $request->About,
             'discount' => $request->discount,
+            'stock' => $request->stock
+
         ]);
         return $productCreated;
     }
@@ -102,6 +108,7 @@ class ProductController extends Controller
             'description' => 'required',
             'price' => 'required | numeric',
             'discount' => 'required | numeric',
+            'stock' => 'required | numeric',
             'About' => 'required'
         ]);
         $product->update([
@@ -111,6 +118,7 @@ class ProductController extends Controller
             'price' => $request->price,
             'About' => $request->About,
             'discount' => $request->discount,
+            'stock' => $request->stock
 
         ]);
         $product->status = 'published';
@@ -119,14 +127,19 @@ class ProductController extends Controller
         if ($request->hasFile('images')) {
             $files = $request->file("images");
             $i = 0;
+
             foreach ($files as $file) {
-                $i = $i + 1;
+                $i++;
+
                 $image = new ProductImage();
                 $image->product_id = $productId;
-                $filename = date('YmdHis') . $i . '.' . $file->getClientOriginalExtension();
-                $path = 'images';
-                $file->move($path, $filename);
-                $image->image = url('/') . '/images/' . $filename;
+
+                // Store the file in the 'public/images' directory
+                $path = $file->store('images', 'public');
+
+                // Generate the public URL for the stored file
+                $image->image = Storage::url($path);
+
                 $image->save();
             }
         }
@@ -148,9 +161,14 @@ class ProductController extends Controller
     {
         $productImages = ProductImage::where('product_id', '=', $id)->get();
         foreach ($productImages as $productImage) {
-            $path = public_path() . '/images/' . substr($productImage['image'], strrpos($productImage['image'], '/') + 1);
-            if (File::exists($path)) {
-                File::delete($path);
+            if ($productImage->image) {
+                // Extract the relative storage path from the image URL
+                $path = str_replace(url('/storage'), 'public', $productImage->image);
+
+                // Check if the file exists and delete it
+                if (Storage::exists($path)) {
+                    Storage::delete($path);
+                }
             }
         }
         DB::table('products')->where('id', '=', $id)->delete();
