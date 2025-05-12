@@ -39,7 +39,7 @@ class ProductController extends Controller
 
     public function getTopRated(Request $request)
     {
-        $products = Product::with('Images')->where('status', '=', 'published')->where('rating', '=', '5')->latest()->take(10)->get();
+        $products = Product::with('Images')->where('status', '=', 'published')->where('rating', '=', '5')->latest()->take(4)->get();
         return $products;
     }
 
